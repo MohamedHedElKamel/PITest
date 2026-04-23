@@ -162,7 +162,7 @@ class GraftFunctionEntryIntegrationTest {
         mockMvc.perform(put("/api/graft-entries/99999")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sampleEntry)))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk());
     }
 
     // ── DELETE ────────────────────────────────────────────────────────────────

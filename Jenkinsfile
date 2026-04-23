@@ -27,6 +27,13 @@ pipeline {
             }
         }
 
+        // ───────── FIX NODE DEPENDENCIES ─────────
+        stage('Install System Dependencies') {
+            steps {
+                sh 'apt-get update && apt-get install -y libatomic1'
+            }
+        }
+
         // ───────── FRONTEND INSTALL ─────────
         stage('Frontend - Install Dependencies') {
             steps {

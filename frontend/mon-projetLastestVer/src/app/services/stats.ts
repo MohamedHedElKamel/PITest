@@ -16,7 +16,7 @@ export interface StatsDTO {
   providedIn: 'root'
 })
 export class StatsService {
-  
+
   // Via API Gateway
   private apiUrl = 'http://localhost:8084/stats';
 
@@ -29,4 +29,7 @@ export class StatsService {
   getSummary(): Observable<string> {
     return this.http.get(`${this.apiUrl}/summary`, { responseType: 'text' });
   }
+}
+
+export class Stats {
 }

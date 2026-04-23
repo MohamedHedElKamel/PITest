@@ -14,7 +14,7 @@ export interface PredictionDTO {
     providedIn: 'root'
 })
 export class PredictionService {
-    
+
     // Via API Gateway
     private apiUrl = 'http://localhost:8093/hospitalization';
 
@@ -46,4 +46,7 @@ export class PredictionService {
         console.log('📊 Récupération du résumé des prédictions');
         return this.http.get(`${this.apiUrl}/predictions/summary`, { responseType: 'text' });
     }
+}
+
+export class Prediction {
 }

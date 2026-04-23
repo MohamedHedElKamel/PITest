@@ -2,20 +2,14 @@ pipeline {
     agent any
 
     tools {
-        jdk '17'
+        maven 'Maven3'
+        jdk 'temurin-17'
         nodejs 'node20'
     }
 
     stages {
 
-        // ───────── CHECKOUT ─────────
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        // ───────── BACKEND ─────────
+        // ───────── BACKEND BUILD ─────────
         stage('Backend - Build') {
             steps {
                 dir('backend/FoncGreffon') {
@@ -24,6 +18,7 @@ pipeline {
             }
         }
 
+        // ───────── BACKEND TESTS ─────────
         stage('Backend - Tests') {
             steps {
                 dir('backend/FoncGreffon') {
@@ -32,7 +27,7 @@ pipeline {
             }
         }
 
-        // ───────── FRONTEND ─────────
+        // ───────── FRONTEND INSTALL ─────────
         stage('Frontend - Install Dependencies') {
             steps {
                 dir('frontend/mon-projetLastestVer') {
@@ -41,6 +36,7 @@ pipeline {
             }
         }
 
+        // ───────── FRONTEND TESTS ─────────
         stage('Frontend - Tests') {
             steps {
                 dir('frontend/mon-projetLastestVer') {
@@ -49,6 +45,7 @@ pipeline {
             }
         }
 
+        // ───────── FRONTEND BUILD ─────────
         stage('Frontend - Build') {
             steps {
                 dir('frontend/mon-projetLastestVer') {

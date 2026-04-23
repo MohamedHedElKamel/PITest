@@ -9,10 +9,12 @@ jobs:
 
   # ───────── BACKEND ─────────
   backend:
+    name: Backend Tests (Spring Boot)
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Java
         uses: actions/setup-java@v3
@@ -20,21 +22,23 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build & Test Backend
+      - name: Build & Run Tests
         run: mvn clean verify
         working-directory: backend/FoncGreffon
 
   # ───────── FRONTEND ─────────
   frontend:
+    name: Frontend Tests (Angular)
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20.x'
 
       - name: Install dependencies
         run: npm install
@@ -45,7 +49,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
 
-      - name: Run tests
+      - name: Run Angular Tests
         run: npm run test -- --watch=false --browsers=ChromeHeadless
         working-directory: frontend/mon-projetLastestVer
 

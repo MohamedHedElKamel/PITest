@@ -7,6 +7,7 @@ on:
 
 jobs:
 
+  # ───────── BACKEND ─────────
   backend:
     runs-on: ubuntu-latest
 
@@ -16,12 +17,14 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Build & Test Backend
         run: mvn clean verify
-        working-directory: backend
+        working-directory: backend/FoncGreffon
 
+  # ───────── FRONTEND ─────────
   frontend:
     runs-on: ubuntu-latest
 
@@ -35,7 +38,7 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: frontend
+        working-directory: frontend/mon-projetLastestVer
 
       - name: Install Chrome
         run: |
@@ -44,8 +47,8 @@ jobs:
 
       - name: Run tests
         run: npm run test -- --watch=false --browsers=ChromeHeadless
-        working-directory: frontend
+        working-directory: frontend/mon-projetLastestVer
 
-      - name: Build
+      - name: Build Angular App
         run: npm run build -- --configuration production
-        working-directory: frontend
+        working-directory: frontend/mon-projetLastestVer

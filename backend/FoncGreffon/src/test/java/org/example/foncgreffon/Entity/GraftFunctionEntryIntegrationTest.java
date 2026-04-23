@@ -107,13 +107,18 @@ class GraftFunctionEntryIntegrationTest {
     }
 
     @Test
+    @DisplayName("PUT /api/graft-entries/{id} — handles missing entry safely")
     void update_shouldHandleMissingEntry() throws Exception {
+
         mockMvc.perform(put("/api/graft-entries/99999")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sampleEntry)))
-                .andExpect(status().is4xxClientError()); // FIXED (no crash expectation)
+                .andExpect(result ->
+                        assertThat(result.getResolvedException())
+                                .isInstanceOf(RuntimeException.class)
+                                .hasMessageContaining("not found")
+                );
     }
-
     @Test
     void delete_shouldRemoveEntry() throws Exception {
         GraftFunctionEntry saved = repository.save(sampleEntry);

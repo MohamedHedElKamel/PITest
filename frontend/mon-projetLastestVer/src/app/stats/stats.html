@@ -1,0 +1,100 @@
+<div class="stats-container">
+  <h2>📊 Tableau de bord statistiques</h2>
+  
+  <!-- Loading -->
+  <div *ngIf="loading" class="stats-loading">
+    <div class="spinner"></div>
+    <p>Chargement des statistiques...</p>
+  </div>
+  
+  <!-- Error -->
+  <div *ngIf="error" class="stats-error">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>{{ error }}</span>
+  </div>
+  
+  <!-- Stats Cards -->
+  <div *ngIf="!loading && !error && stats" class="stats-grid">
+    
+    <!-- Carte Total -->
+    <div class="stat-card">
+      <div class="stat-icon">🏥</div>
+      <div class="stat-content">
+        <div class="stat-label">Total Hospitalisations</div>
+        <div class="stat-value">{{ stats.totalHospitalizations }}</div>
+      </div>
+    </div>
+    
+    <!-- Carte Patients Critiques -->
+    <div class="stat-card critical">
+      <div class="stat-icon">🔴</div>
+      <div class="stat-content">
+        <div class="stat-label">Patients Critiques</div>
+        <div class="stat-value">{{ stats.criticalPatients }}</div>
+      </div>
+    </div>
+    
+    <!-- Carte Patients Stables -->
+    <div class="stat-card stable">
+      <div class="stat-icon">🟢</div>
+      <div class="stat-content">
+        <div class="stat-label">Patients Stables</div>
+        <div class="stat-value">{{ stats.stablePatients }}</div>
+      </div>
+    </div>
+    
+    <!-- Carte Durée moyenne -->
+    <div class="stat-card">
+      <div class="stat-icon">⏱️</div>
+      <div class="stat-content">
+        <div class="stat-label">Durée moyenne séjour</div>
+        <div class="stat-value">{{ averageStayFormatted }}</div>
+      </div>
+    </div>
+    
+    <!-- Carte Taux occupation -->
+    <div class="stat-card">
+      <div class="stat-icon">📈</div>
+      <div class="stat-content">
+        <div class="stat-label">Taux d'occupation</div>
+        <div class="stat-value">{{ occupancyRateFormatted }}</div>
+      </div>
+    </div>
+    
+    <!-- Carte Évolution journalière -->
+    <div class="stat-card">
+      <div class="stat-icon">📊</div>
+      <div class="stat-content">
+        <div class="stat-label">Évolution journalière</div>
+        <div class="stat-value" [ngClass]="dailyEvolutionClass">
+          {{ dailyEvolutionFormatted }}
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Graphique des admissions par mois -->
+  <div *ngIf="!loading && !error && stats && chartLabels.length > 0" class="chart-container">
+    <h3>Admissions par mois</h3>
+    <div class="chart-bars">
+      <div *ngFor="let month of chartLabels; let i = index" class="chart-bar-item">
+        <div class="chart-bar-label">{{ month }}</div>
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar" 
+               [style.width.%]="(stats.admissionsByMonth[month] / getMaxAdmissions() * 100) + '%'">
+            {{ stats.admissionsByMonth[month] }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Résumé texte -->
+  <div *ngIf="summary" class="stats-summary">
+    {{ summary }}
+  </div>
+</div>

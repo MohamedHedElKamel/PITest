@@ -1,0 +1,40 @@
+<!-- NAVBAR CORRIGÉE -->
+<div class="navbar-internal">
+    <div class="logo">
+        <div style="font-size: 28px;">🏥</div>
+        <span>Kidney Care</span>
+    </div>
+    
+    <button class="mobile-menu-toggle" (click)="toggleMobileMenu()" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <div class="nav-menu" [class.show]="showMobileMenu">
+        <div class="nav-item" routerLink="/back" routerLinkActive="active">Dashboard</div>
+        <!-- AJOUTER HOSPITALISATION ICI -->
+        <div class="nav-item" routerLink="/hospitalisation" routerLinkActive="active"> Hospitalisations</div>
+        <!-- Les autres liens - à corriger selon vos routes réelles -->
+        <div class="nav-item" routerLink="/users" routerLinkActive="active">Users</div>
+        <div class="nav-item" routerLink="/dossiers" routerLinkActive="active">Dossiers & Suivi</div>
+        <div class="nav-item" routerLink="/treatment" routerLinkActive="active">Imagerie</div>
+        <div class="nav-item" routerLink="/history" routerLinkActive="active">Messages</div>
+        <div class="nav-item" routerLink="/home" routerLinkActive="active">Settings</div>
+        <div class="nav-item" routerLink="/infection" routerLinkActive="active">Infections</div>
+    </div>
+
+    <div class="user-section">
+        <div class="notification-icon">
+            <span style="font-size: 24px;">🔔</span>
+            <span class="notification-badge">3</span>
+        </div>
+        <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
+            <div class="user-avatar">SD</div>
+            <div>
+                <div style="font-weight: 600; font-size: 14px;"></div>
+                <div style="font-size: 12px; color: #718096;">Néphrologue</div>
+            </div>
+        </div>
+    </div>
+</div>

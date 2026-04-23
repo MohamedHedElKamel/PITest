@@ -1,0 +1,1633 @@
+<div style="width:100%; min-height:100%; background:#f8fafc; box-sizing:border-box;">
+
+  <!-- API ERROR BANNER -->
+  <div *ngIf="apiError"
+       style="margin:16px 32px; padding:12px 18px; background:#fef2f2;
+              border:1px solid #fca5a5; border-left:4px solid #ef4444;
+              border-radius:10px; font-size:13px; color:#991b1b; font-weight:600;">
+    Error: {{ apiError }}
+  </div>
+
+  <!-- DELETE MODAL (medecin only) -->
+  <div *ngIf="deleteConfirm.show && auth.isMedecin()"
+       style="position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999;
+              display:flex; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:18px; padding:32px 36px; max-width:380px;
+                width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="font-size:36px; margin-bottom:12px; color:#ef4444; font-weight:900;">!</div>
+      <h3 style="margin:0 0 8px; color:#1e293b; font-size:18px;">Confirm Deletion</h3>
+      <p style="margin:0 0 24px; color:#64748b; font-size:14px; line-height:1.6;">
+        Delete <strong style="color:#1e293b;">{{ deleteConfirm.label }}</strong>?
+        <br><span style="font-size:13px;">This action cannot be undone.</span>
+      </p>
+      <div style="display:flex; gap:12px; justify-content:center;">
+        <button (click)="cancelDelete()"
+                style="padding:10px 24px; border-radius:10px; border:2px solid #e2e8f0;
+                       background:white; color:#64748b; font-size:14px; font-weight:700; cursor:pointer;">
+          Cancel
+        </button>
+        <button (click)="confirmDelete()"
+                style="padding:10px 24px; border-radius:10px; border:none;
+                       background:linear-gradient(135deg,#ef4444,#dc2626); color:white;
+                       font-size:14px; font-weight:700; cursor:pointer;">
+          Yes, Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- AUTO-GENERATE SCORE MODAL                                             -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="showAutoScoreModal"
+       style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999;
+              display:flex; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:20px; padding:32px 36px; max-width:460px;
+                width:92%; box-shadow:0 24px 64px rgba(0,0,0,0.22);">
+
+      <!-- Header -->
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <div style="width:42px; height:42px; border-radius:12px;
+                    background:linear-gradient(135deg,#0d3b6e,#1f8dd6);
+                    display:flex; align-items:center; justify-content:center; font-size:22px;">🧬</div>
+        <div>
+          <h3 style="margin:0; color:#0d3b6e; font-size:17px; font-weight:900;">
+            Auto-Generate Survival Score
+          </h3>
+          <p style="margin:0; color:#64748b; font-size:12px; font-weight:600;">
+            Computed from eGFR trends across all graft entries.
+          </p>
+        </div>
+      </div>
+
+      <!-- Patient selector (medecin only) -->
+      <div *ngIf="auth.isMedecin()">
+        <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+          Patient <span style="color:#ef4444;">*</span>
+        </label>
+        <select [(ngModel)]="autoScorePatientId" class="input"
+                [style.borderColor]="autoScoreTouched && !autoScorePatientId ? '#ef4444' : ''">
+          <option value="">— Select Patient —</option>
+          <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+        </select>
+        <p *ngIf="autoScoreTouched && !autoScorePatientId"
+           style="color:#ef4444; font-size:12px; margin:4px 0 0; font-weight:600;">
+          Please select a patient.
+        </p>
+      </div>
+
+      <!-- Patient label (patient role) -->
+      <div *ngIf="auth.isPatient()"
+           style="padding:10px 14px; background:#eff6ff; border:1px solid #bfdbfe;
+                  border-radius:10px; font-size:13px; color:#1e40af; font-weight:700;">
+        Generating score for: <strong>{{ auth.getUsername() }}</strong>
+      </div>
+
+      <!-- Entry count info -->
+      <div *ngIf="autoScorePatientId || auth.isPatient()"
+           style="margin-top:14px; padding:12px 14px; background:#f8fafc;
+                  border:1px solid #e2e8f0; border-radius:10px;">
+        <div style="font-size:12px; font-weight:800; color:#374151; margin-bottom:6px;">
+          📊 Data available
+        </div>
+        <div style="font-size:13px; color:#475569; font-weight:600; line-height:1.7;">
+          <span>Graft entries: <strong style="color:#0d3b6e;">{{ getPatientEntryCount(autoScorePatientId || auth.getUsername()) }}</strong></span><br/>
+          <span>With eGFR readings: <strong style="color:#0d3b6e;">{{ getPatientEGFRCount(autoScorePatientId || auth.getUsername()) }}</strong></span><br/>
+          <span *ngIf="getPatientEGFRCount(autoScorePatientId || auth.getUsername()) < 2"
+                style="color:#ef4444; font-size:12px;">
+            ⚠ At least 2 eGFR readings are required for auto-computation.
+          </span>
+        </div>
+      </div>
+
+      <!-- How it works info box -->
+      <div style="margin-top:14px; padding:10px 14px; background:#f0f8ff;
+                  border:1px solid #b3d9f5; border-radius:10px; font-size:12px; color:#1565a8; line-height:1.6;">
+        The algorithm uses the last <strong>6 eGFR readings</strong> to compute a linear slope,
+        then derives 1-, 3- and 5-year survival probabilities and an overall risk level.
+        The result is pre-filled into the manual score form so you can review and adjust before saving.
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+        <button (click)="closeAutoScoreModal()"
+                style="padding:10px 20px; border-radius:10px; border:2px solid #e2e8f0;
+                       background:white; color:#64748b; font-size:14px; font-weight:700; cursor:pointer;">
+          Cancel
+        </button>
+        <button (click)="triggerAutoScore()"
+                [disabled]="auth.isMedecin() && !autoScorePatientId"
+                [style.opacity]="(auth.isMedecin() && !autoScorePatientId) ? '0.5' : '1'"
+                style="padding:10px 24px; border-radius:10px; border:none;
+                       background:linear-gradient(135deg,#0d3b6e,#1f8dd6); color:white;
+                       font-size:14px; font-weight:800; cursor:pointer; display:flex;
+                       align-items:center; gap:8px;">
+          🧬 Generate Score
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARISON MODAL -->
+<div *ngIf="showCompareModal"
+     style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999;
+            display:flex; align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:20px; padding:32px 36px; max-width:560px;
+              width:94%; box-shadow:0 24px 64px rgba(0,0,0,0.22); max-height:90vh; overflow-y:auto;">
+
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <div style="width:42px; height:42px; border-radius:12px;
+                  background:linear-gradient(135deg,#0d6e4e,#10b981);
+                  display:flex; align-items:center; justify-content:center; font-size:22px;">📊</div>
+      <div>
+        <h3 style="margin:0; color:#0d3b6e; font-size:17px; font-weight:900;">Compare to Similar Patients</h3>
+        <p style="margin:0; color:#64748b; font-size:12px; font-weight:600;">
+          Find patients with similar clinical profiles and compare graft function trends.
+        </p>
+      </div>
+    </div>
+
+    <!-- Patient selector (medecin only) -->
+    <div *ngIf="auth.isMedecin()" style="margin-bottom:14px;">
+      <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+        Reference Patient <span style="color:#ef4444;">*</span>
+      </label>
+      <select [(ngModel)]="comparePatientId" class="input"
+              (ngModelChange)="onComparePatientChange()">
+        <option value="">— Select Patient —</option>
+        <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+      </select>
+    </div>
+
+   
+
+    <!-- Results -->
+    <div *ngIf="compareResults.length > 0">
+      <div style="font-size:13px; font-weight:800; color:#374151; margin-bottom:10px;">
+        {{ compareBestMatch ? 'Best Match' : compareResults.length + ' Similar Patient(s) Found' }}
+      </div>
+      <div *ngFor="let r of compareResults"
+           style="background:#f0fdf4; border:1px solid #86efac; border-radius:12px;
+                  padding:14px 16px; margin-bottom:10px;">
+        <div style="font-size:14px; font-weight:900; color:#166534; margin-bottom:8px;">
+          {{ r.patientId }}
+          <span style="font-size:11px; font-weight:700; color:#64748b; margin-left:8px;">
+            Similarity: {{ r.similarityScore }}%
+          </span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; font-size:12px;">
+          <div><span style="color:#6b7280; font-weight:700;">Avg eGFR:</span>
+               <strong style="color:#0d3b6e; margin-left:4px;">{{ r.avgEGFR | number:'1.1-1' }} mL/min</strong></div>
+          <div><span style="color:#6b7280; font-weight:700;">Avg Creat.:</span>
+               <strong style="color:#0d3b6e; margin-left:4px;">{{ r.avgCreatinine | number:'1.2-2' }} mg/dL</strong></div>
+          <div><span style="color:#6b7280; font-weight:700;">Entries:</span>
+               <strong style="color:#0d3b6e; margin-left:4px;">{{ r.entryCount }}</strong></div>
+        </div>
+        <div *ngIf="r.latestScore"
+             style="margin-top:8px; padding:8px 10px; background:white; border-radius:8px;
+                    border:1px solid #d1fae5; font-size:12px;">
+          <span style="font-weight:800; color:#374151;">Latest survival score: </span>
+          <span [style.color]="getRiskColour(r.latestScore.riskLevel).color" style="font-weight:800;">
+            {{ r.latestScore.riskLevel }} RISK
+          </span>
+          · 1yr: {{ getProbabilityBar(r.latestScore.survivalProbability1Year) }}%
+          · 3yr: {{ getProbabilityBar(r.latestScore.survivalProbability3Year) }}%
+          · 5yr: {{ getProbabilityBar(r.latestScore.survivalProbability5Year) }}%
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECTED STATS PANEL -->
+<div *ngIf="projectedStats"
+     style="margin-bottom:16px; background:linear-gradient(135deg,#f0fdf4,#eff6ff);
+            border:1.5px solid #6ee7b7; border-radius:14px; padding:18px 20px;">
+
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+    <div style="width:34px; height:34px; border-radius:10px;
+                background:linear-gradient(135deg,#0d6e4e,#10b981);
+                display:flex; align-items:center; justify-content:center; font-size:18px;">🔭</div>
+    <div>
+      <div style="font-size:14px; font-weight:900; color:#0d3b6e;">Projected Outcome</div>
+      <div style="font-size:11px; font-weight:600; color:#64748b;">
+        Weighted projection based on {{ projectedStats.basedOnCount }} similar patient(s)
+      </div>
+    </div>
+    <span *ngIf="projectedStats.riskLevel"
+          [style.background]="getRiskColour(projectedStats.riskLevel).color"
+          style="color:white; font-size:11px; font-weight:800; padding:3px 12px;
+                 border-radius:99px; margin-left:auto;">
+      {{ projectedStats.riskLevel }} RISK
+    </span>
+  </div>
+
+  <!-- Projected clinical values -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+    <div style="background:white; border:1px solid #d1fae5; border-radius:10px; padding:12px 14px;">
+      <div style="font-size:11px; font-weight:700; color:#6b7280; margin-bottom:4px;">
+        Projected Avg eGFR
+      </div>
+      <div style="font-size:20px; font-weight:900;"
+           [style.color]="projectedStats.avgEGFR !== null
+             ? (projectedStats.avgEGFR >= 60 ? '#10b981' : projectedStats.avgEGFR >= 30 ? '#f59e0b' : '#ef4444')
+             : '#94a3b8'">
+        {{ projectedStats.avgEGFR !== null ? (projectedStats.avgEGFR | number:'1.1-1') + ' mL/min' : '—' }}
+      </div>
+    </div>
+    <div style="background:white; border:1px solid #d1fae5; border-radius:10px; padding:12px 14px;">
+      <div style="font-size:11px; font-weight:700; color:#6b7280; margin-bottom:4px;">
+        Projected Avg Creatinine
+      </div>
+      <div style="font-size:20px; font-weight:900;"
+           [style.color]="projectedStats.avgCreatinine !== null
+             ? (projectedStats.avgCreatinine <= 1.5 ? '#10b981' : projectedStats.avgCreatinine <= 3 ? '#f59e0b' : '#ef4444')
+             : '#94a3b8'">
+        {{ projectedStats.avgCreatinine !== null ? (projectedStats.avgCreatinine | number:'1.2-2') + ' mg/dL' : '—' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Projected survival probability bars -->
+  <div *ngIf="projectedStats.survival1Year !== null || projectedStats.survival3Year !== null || projectedStats.survival5Year !== null"
+       style="background:white; border:1px solid #d1fae5; border-radius:10px; padding:14px 16px;">
+    <div style="font-size:11px; font-weight:800; text-transform:uppercase;
+                letter-spacing:0.06em; color:#64748b; margin-bottom:12px;">
+      Projected Graft Survival Probability
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="font-size:12px; font-weight:700; color:#6b7280;">1 Year</span>
+        <span style="font-size:13px; font-weight:900;"
+              [style.color]="getProbabilityColor(projectedStats.survival1Year)">
+          {{ projectedStats.survival1Year !== null ? getProbabilityBar(projectedStats.survival1Year) + '%' : '—' }}
+        </span>
+      </div>
+      <div style="background:#e2e8f0; border-radius:99px; height:10px; overflow:hidden;">
+        <div [style.width]="getProbabilityBar(projectedStats.survival1Year) + '%'"
+             [style.background]="getProbabilityColor(projectedStats.survival1Year)"
+             style="height:100%; border-radius:99px; transition:width 0.7s ease;"></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="font-size:12px; font-weight:700; color:#6b7280;">3 Years</span>
+        <span style="font-size:13px; font-weight:900;"
+              [style.color]="getProbabilityColor(projectedStats.survival3Year)">
+          {{ projectedStats.survival3Year !== null ? getProbabilityBar(projectedStats.survival3Year) + '%' : '—' }}
+        </span>
+      </div>
+      <div style="background:#e2e8f0; border-radius:99px; height:10px; overflow:hidden;">
+        <div [style.width]="getProbabilityBar(projectedStats.survival3Year) + '%'"
+             [style.background]="getProbabilityColor(projectedStats.survival3Year)"
+             style="height:100%; border-radius:99px; transition:width 0.7s ease;"></div>
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+        <span style="font-size:12px; font-weight:700; color:#6b7280;">5 Years</span>
+        <span style="font-size:13px; font-weight:900;"
+              [style.color]="getProbabilityColor(projectedStats.survival5Year)">
+          {{ projectedStats.survival5Year !== null ? getProbabilityBar(projectedStats.survival5Year) + '%' : '—' }}
+        </span>
+      </div>
+      <div style="background:#e2e8f0; border-radius:99px; height:10px; overflow:hidden;">
+        <div [style.width]="getProbabilityBar(projectedStats.survival5Year) + '%'"
+             [style.background]="getProbabilityColor(projectedStats.survival5Year)"
+             style="height:100%; border-radius:99px; transition:width 0.7s ease;"></div>
+      </div>
+    </div>
+
+    <!-- Disclaimer -->
+    <div style="margin-top:12px; font-size:11px; color:#94a3b8; font-weight:600;
+                border-top:1px solid #e2e8f0; padding-top:8px;">
+      ⚠ These projections are statistical estimates derived from similar patients only.
+      They do not constitute a clinical diagnosis or prognosis.
+    </div>
+  </div>
+
+  <!-- No survival scores available notice -->
+  <div *ngIf="projectedStats.survival1Year === null"
+       style="margin-top:10px; padding:10px 14px; background:#fffbeb;
+              border:1px solid #fcd34d; border-radius:10px; font-size:12px;
+              color:#92400e; font-weight:600;">
+    ⚠ No survival scores found for the matched patient(s) — survival projection unavailable.
+    Clinical value projections (eGFR, creatinine) are still shown above.
+  </div>
+</div>
+
+    <div *ngIf="compareSearched && compareResults.length === 0"
+         style="padding:16px; background:#fef2f2; border-radius:10px; font-size:13px;
+                color:#991b1b; font-weight:600; text-align:center;">
+      No similar patients found with the selected criteria.
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+      <button (click)="closeCompareModal()"
+              style="padding:10px 20px; border-radius:10px; border:2px solid #e2e8f0;
+                     background:white; color:#64748b; font-size:14px; font-weight:700; cursor:pointer;">
+        Close
+      </button>
+      <button (click)="runComparison()"
+              [disabled]="!comparePatientId && auth.isMedecin()"
+              style="padding:10px 24px; border-radius:10px; border:none;
+                     background:linear-gradient(135deg,#0d6e4e,#10b981); color:white;
+                     font-size:14px; font-weight:800; cursor:pointer;">
+        🔍 Find Similar
+      </button>
+    </div>
+  </div>
+</div>
+
+  <!-- MAIN -->
+  <div style="padding:28px 32px; width:100%; box-sizing:border-box;">
+
+    <!-- PAGE HEADER -->
+    <div style="margin-bottom:24px;">
+      <h2 style="margin:0 0 4px; font-size:22px; color:#0d3b6e; font-weight:900;">
+        Surveillance de la Fonction du Greffon
+      </h2>
+      <p style="margin:0; font-size:13px; color:#64748b; font-weight:600;">
+        Serial creatinine / eGFR monitoring · Baseline reference values · Alert thresholds · Graft survival scoring
+      </p>
+    </div>
+
+    <!-- PATIENT BANNER -->
+    <div *ngIf="auth.isPatient()"
+         style="margin-bottom:20px; padding:12px 18px; background:#eff6ff;
+                border:1px solid #bfdbfe; border-left:4px solid #3b82f6;
+                border-radius:10px; font-size:13px; color:#1e40af; font-weight:600;">
+      Viewing your personal graft monitoring records — {{ auth.getPatientIdentifier() }}
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap;">
+      <button (click)="setTab('entries')"
+              [style.background]="activeTab === 'entries' ? 'linear-gradient(135deg,#0d3b6e,#1f8dd6)' : 'white'"
+              [style.color]="activeTab === 'entries' ? 'white' : '#475569'"
+              [style.borderColor]="activeTab === 'entries' ? 'transparent' : '#e2e8f0'"
+              style="padding:10px 20px; border-radius:10px; border:2px solid; font-weight:700;
+                     font-size:13px; cursor:pointer; transition:all 0.2s;">
+        Graft Entries
+        <span style="background:rgba(255,255,255,0.25); padding:1px 8px; border-radius:99px;
+                     font-size:11px; margin-left:6px;">{{ filteredEntries.length }}</span>
+      </button>
+      <button (click)="setTab('reference')"
+              [style.background]="activeTab === 'reference' ? 'linear-gradient(135deg,#0d3b6e,#1f8dd6)' : 'white'"
+              [style.color]="activeTab === 'reference' ? 'white' : '#475569'"
+              [style.borderColor]="activeTab === 'reference' ? 'transparent' : '#e2e8f0'"
+              style="padding:10px 20px; border-radius:10px; border:2px solid; font-weight:700;
+                     font-size:13px; cursor:pointer; transition:all 0.2s;">
+        Reference Values
+        <span style="background:rgba(255,255,255,0.25); padding:1px 8px; border-radius:99px;
+                     font-size:11px; margin-left:6px;">{{ filteredRefs.length }}</span>
+      </button>
+      <button (click)="setTab('thresholds')"
+              [style.background]="activeTab === 'thresholds' ? 'linear-gradient(135deg,#0d3b6e,#1f8dd6)' : 'white'"
+              [style.color]="activeTab === 'thresholds' ? 'white' : '#475569'"
+              [style.borderColor]="activeTab === 'thresholds' ? 'transparent' : '#e2e8f0'"
+              style="padding:10px 20px; border-radius:10px; border:2px solid; font-weight:700;
+                     font-size:13px; cursor:pointer; transition:all 0.2s;">
+        Alert Thresholds
+        <span style="background:rgba(255,255,255,0.25); padding:1px 8px; border-radius:99px;
+                     font-size:11px; margin-left:6px;">{{ filteredThresholds.length }}</span>
+      </button>
+      <button (click)="setTab('scores')"
+              [style.background]="activeTab === 'scores' ? 'linear-gradient(135deg,#0d3b6e,#1f8dd6)' : 'white'"
+              [style.color]="activeTab === 'scores' ? 'white' : '#475569'"
+              [style.borderColor]="activeTab === 'scores' ? 'transparent' : '#e2e8f0'"
+              style="padding:10px 20px; border-radius:10px; border:2px solid; font-weight:700;
+                     font-size:13px; cursor:pointer; transition:all 0.2s;">
+        Survival Scores
+        <span style="background:rgba(255,255,255,0.25); padding:1px 8px; border-radius:99px;
+                     font-size:11px; margin-left:6px;">{{ filteredScores.length }}</span>
+      </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB: GRAFT FUNCTION ENTRIES (CARD GRID LAYOUT)                        -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'entries'">
+
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center;
+                  flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0; font-size:18px; color:#1e293b;">Graft Function Entries</h3>
+        <div style="display:flex; gap:10px;">
+          <button *ngIf="auth.isMedecin()" class="rmed-btn-all" (click)="openAddEntry()">➕ Add Entry</button>
+          <button *ngIf="auth.isMedecin()" class="rmed-btn-reset" (click)="downloadFilteredEntriesCsv()"
+                  style="padding:10px 18px; font-weight:800; color:#0d3b6e;">
+            Download CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Add/Edit Form (medecin only) -->
+      <div *ngIf="showEntryForm && auth.isMedecin()" class="rmed-med-card" style="padding:20px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">{{ editEntryMode ? 'Edit Entry' : 'New Graft Function Entry' }}</h3>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Patient <span style="color:#ef4444;">*</span>
+            </label>
+            <select [(ngModel)]="newEntry.patientId" class="input"
+                    [style.borderColor]="entryTouched['patientId'] && entryPatientError ? '#ef4444' : ''"
+                    (blur)="touchEntry('patientId')" (ngModelChange)="touchEntry('patientId')">
+              <option value="">— Select Patient —</option>
+              <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+            </select>
+            <p *ngIf="entryTouched['patientId'] && entryPatientError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ entryPatientError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Measurement Date <span style="color:#ef4444;">*</span>
+            </label>
+            <input type="date" [(ngModel)]="newEntry.measurementDate" class="input"
+                   [max]="todayIso"
+                   [style.borderColor]="entryTouched['measurementDate'] && entryDateError ? '#ef4444' : ''"
+                   (blur)="touchEntry('measurementDate')" (ngModelChange)="touchEntry('measurementDate')"/>
+            <p *ngIf="entryTouched['measurementDate'] && entryDateError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ entryDateError }}
+            </p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Creatinine (mg/dL)
+            </label>
+            <input type="number" step="0.01" min="0.1" max="20"
+       [(ngModel)]="newEntry.creatinine" class="input" placeholder="e.g. 1.2"
+       [style.borderColor]="entryTouched['creatinine'] && entryCreatinineError ? '#ef4444' : ''"
+       (blur)="touchEntry('creatinine')" (ngModelChange)="touchEntry('creatinine')"/>
+<p *ngIf="entryTouched['creatinine'] && entryCreatinineError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entryCreatinineError }}
+</p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              eGFR (mL/min/1.73m²)
+            </label>
+            <input type="number" step="0.1" min="0" max="2000"
+       [(ngModel)]="newEntry.eGFR" class="input" placeholder="e.g. 55"
+       [style.borderColor]="entryTouched['eGFR'] && entryEGFRError ? '#ef4444' : ''"
+       (blur)="touchEntry('eGFR')" (ngModelChange)="touchEntry('eGFR')"/>
+<p *ngIf="entryTouched['eGFR'] && entryEGFRError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entryEGFRError }}
+</p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Urine Output (mL/24h)
+            </label>
+            <input type="number" min="0" max="100000" step="10"
+       [(ngModel)]="newEntry.urineOutput" class="input" placeholder="e.g. 1500"
+       [style.borderColor]="entryTouched['urineOutput'] && entryUrineOutputError ? '#ef4444' : ''"
+       (blur)="touchEntry('urineOutput')" (ngModelChange)="touchEntry('urineOutput')"/>
+<p *ngIf="entryTouched['urineOutput'] && entryUrineOutputError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entryUrineOutputError }}
+</p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Tacrolimus Level (ng/mL)
+            </label>
+           <input type="number" step="0.1" min="0" max="50"
+       [(ngModel)]="newEntry.tacrolimusLevel" class="input" placeholder="e.g. 8.5"
+       [style.borderColor]="entryTouched['tacrolimusLevel'] && entryTacrolimusLevelError ? '#ef4444' : ''"
+       (blur)="touchEntry('tacrolimusLevel')" (ngModelChange)="touchEntry('tacrolimusLevel')"/>
+<p *ngIf="entryTouched['tacrolimusLevel'] && entryTacrolimusLevelError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entryTacrolimusLevelError }}
+</p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Systolic BP (mmHg)
+            </label>
+            <input type="number" min="60" max="260" step="1"
+       [(ngModel)]="newEntry.systolicBP" class="input" placeholder="e.g. 120"
+       [style.borderColor]="entryTouched['systolicBP'] && entrySystolicBPError ? '#ef4444' : ''"
+       (blur)="touchEntry('systolicBP')" (ngModelChange)="touchEntry('systolicBP')"/>
+<p *ngIf="entryTouched['systolicBP'] && entrySystolicBPError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entrySystolicBPError }}
+</p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Diastolic BP (mmHg)
+            </label>
+            <input type="number" min="30" max="170" step="1"
+       [(ngModel)]="newEntry.diastolicBP" class="input" placeholder="e.g. 80"
+       [style.borderColor]="entryTouched['diastolicBP'] && entryDiastolicBPError ? '#ef4444' : ''"
+       (blur)="touchEntry('diastolicBP')" (ngModelChange)="touchEntry('diastolicBP')"/>
+<p *ngIf="entryTouched['diastolicBP'] && entryDiastolicBPError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entryDiastolicBPError }}
+</p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Weight (kg)
+            </label>
+            <input type="number" step="0.1" min="0.1" max="300"
+       [(ngModel)]="newEntry.weight" class="input" placeholder="e.g. 35.5"
+       [style.borderColor]="entryTouched['weight'] && entryWeightError ? '#ef4444' : ''"
+       (blur)="touchEntry('weight')" (ngModelChange)="touchEntry('weight')"/>
+<p *ngIf="entryTouched['weight'] && entryWeightError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entryWeightError }}
+</p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Temperature (°C)
+            </label>
+         <input type="number" step="0.1" min="30" max="45"
+       [(ngModel)]="newEntry.temperature" class="input" placeholder="e.g. 37.2"
+       [style.borderColor]="entryTouched['temperature'] && entryTemperatureError ? '#ef4444' : ''"
+       (blur)="touchEntry('temperature')" (ngModelChange)="touchEntry('temperature')"/>
+<p *ngIf="entryTouched['temperature'] && entryTemperatureError"
+   style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+  {{ entryTemperatureError }}
+</p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Collection Type
+            </label>
+            <select [(ngModel)]="newEntry.collectionType" class="input">
+              <option *ngFor="let t of collectionTypes" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px; margin-top:4px;">
+          Notes
+        </label>
+        <textarea [(ngModel)]="newEntry.notes" class="input" rows="2"
+                  placeholder="Clinical observations, context..."></textarea>
+
+        <div style="display:flex; gap:10px; margin-top:12px;">
+         <button class="rmed-btn-all" (click)="saveEntry()"
+        [disabled]="!entryFormValid"
+        [style.opacity]="entryFormValid ? '1' : '0.5'"
+        [style.cursor]="entryFormValid ? 'pointer' : 'not-allowed'">
+            {{ editEntryMode ? 'Update Entry' : 'Add Entry' }}
+          </button>
+          <button class="rmed-btn-reset" (click)="closeEntryForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; background:#f8fafc;
+                  border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; align-items:center;">
+        <input [(ngModel)]="entrySearch" placeholder="Search patient / notes"
+               class="input" style="margin:0; flex:1; min-width:160px;"/>
+        <!-- Patient filter: medecin only -->
+        <select *ngIf="auth.isMedecin()" [(ngModel)]="entryPatientFilter" class="input" style="margin:0; width:180px;">
+          <option value="">All Patients</option>
+          <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+        </select>
+        <select [(ngModel)]="entryTypeFilter" class="input" style="margin:0; width:150px;">
+          <option value="">All Types</option>
+          <option *ngFor="let t of collectionTypes" [value]="t">{{ t }}</option>
+        </select>
+        <input type="date" [(ngModel)]="entryDateFilter" class="input" style="margin:0; width:160px;"/>
+        <span style="font-size:13px; color:#64748b; white-space:nowrap;">Sort:</span>
+        <button (click)="toggleEntrySort('measurementDate')" class="rmed-btn-reset" style="padding:6px 12px; font-size:13px;">
+          Date {{ entrySortBy === 'measurementDate' ? (entrySortDir === 'asc' ? '▲' : '▼') : '' }}
+        </button>
+        <button (click)="toggleEntrySort('creatinine')" class="rmed-btn-reset" style="padding:6px 12px; font-size:13px;">
+          Creat. {{ entrySortBy === 'creatinine' ? (entrySortDir === 'asc' ? '▲' : '▼') : '' }}
+        </button>
+        <button (click)="toggleEntrySort('eGFR')" class="rmed-btn-reset" style="padding:6px 12px; font-size:13px;">
+          eGFR {{ entrySortBy === 'eGFR' ? (entrySortDir === 'asc' ? '▲' : '▼') : '' }}
+        </button>
+        <button (click)="clearEntryFilters()" class="rmed-btn-reset"
+                style="padding:6px 12px; font-size:13px; color:#ef4444;">Clear</button>
+      </div>
+
+      <!-- Cards grid -->
+      <div class="rmed-grid">
+        <div *ngFor="let e of filteredEntries" class="rmed-med-card"
+             [style.borderColor]="getEntryAlertLevel(e)?.color ?? 'rgba(26,155,230,0.12)'"
+             [style.background]="getEntryAlertLevel(e)?.bg ?? 'white'">
+
+          <!-- Alert badge -->
+          <div *ngIf="getEntryAlertLevel(e)" style="padding:8px 14px 0; display:flex; gap:6px; flex-wrap:wrap;">
+            <span [style.background]="getEntryAlertLevel(e)!.color"
+                  style="color:white; font-size:10px; font-weight:800; padding:3px 10px; border-radius:99px;">
+              🚨 {{ getEntryAlertLevel(e)!.level }} ALERT
+            </span>
+          </div>
+
+          <div class="rmed-card-header">
+            <div class="rmed-card-title-block">
+              <h3 class="rmed-med-name">{{ e.patientId }}</h3>
+              <span class="rmed-cat-tag"
+                    [style.background]="collectionBadge(e.collectionType).bg"
+                    [style.color]="collectionBadge(e.collectionType).color">
+                {{ e.collectionType }}
+              </span>
+            </div>
+          </div>
+
+          <div class="rmed-dosage-row">
+            <span class="rmed-dosage-pill">📅 {{ fmtDate(e.measurementDate) }}</span>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Creatinine</span>
+            <span class="rmed-ing-val" style="font-weight:800;">
+              {{ e.creatinine !== null ? e.creatinine + ' mg/dL' : '—' }}
+              <span *ngIf="getCreatinineChange(e) !== null"
+                    [style.color]="getCreatinineChange(e)! > 0 ? '#ef4444' : '#10b981'"
+                    style="font-size:11px; margin-left:6px; font-weight:700;">
+                {{ getCreatinineChange(e)! > 0 ? '▲' : '▼' }}{{ Math.abs(getCreatinineChange(e)!) }}%
+              </span>
+            </span>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">eGFR</span>
+            <span class="rmed-ing-val" style="font-weight:800;">
+              {{ e.eGFR !== null ? e.eGFR + ' mL/min' : '—' }}
+              <span *ngIf="getEGFRChange(e) !== null"
+                    [style.color]="getEGFRChange(e)! < 0 ? '#ef4444' : '#10b981'"
+                    style="font-size:11px; margin-left:6px; font-weight:700;">
+                {{ getEGFRChange(e)! > 0 ? '▲' : '▼' }}{{ Math.abs(getEGFRChange(e)!) }}%
+              </span>
+            </span>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Tacrolimus</span>
+            <span class="rmed-ing-val">{{ e.tacrolimusLevel !== null ? e.tacrolimusLevel + ' ng/mL' : '—' }}</span>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">BP</span>
+            <span class="rmed-ing-val">
+              {{ (e.systolicBP !== null && e.diastolicBP !== null) ? e.systolicBP + ' / ' + e.diastolicBP + ' mmHg' : '—' }}
+            </span>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Weight</span>
+            <span class="rmed-ing-val">{{ e.weight !== null ? e.weight + ' kg' : '—' }}</span>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Temp.</span>
+            <span class="rmed-ing-val">{{ e.temperature !== null ? e.temperature + ' °C' : '—' }}</span>
+          </div>
+
+          <div *ngIf="e.notes" class="rmed-ingredient" style="flex-direction:column; align-items:flex-start; gap:2px;">
+            <span class="rmed-ing-lbl">Notes</span>
+            <span style="font-size:12px; color:#475569; font-weight:600; line-height:1.5;">{{ e.notes }}</span>
+          </div>
+
+          <!-- Edit/Delete: medecin only -->
+          <div *ngIf="auth.isMedecin()" class="rmed-card-footer" style="display:flex; gap:8px;">
+            <button class="rmed-btn-reset" (click)="editEntry(e)">Edit</button>
+            <button class="rmed-btn-reset" style="color:#ef4444; border-color:#fca5a5;"
+                    (click)="askDelete('entry', e.id, e.patientId + ' — ' + fmtDate(e.measurementDate))">
+              Delete
+            </button>
+          </div>
+        </div>
+        <p *ngIf="filteredEntries.length === 0" style="color:#888;">No entries match your filters.</p>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB: REFERENCE VALUES                                                 -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'reference'">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;
+                  flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0; font-size:18px; color:#1e293b;">Patient Baseline Reference Values</h3>
+<button *ngIf="auth.isMedecin()" class="rmed-btn-all" (click)="openAddRef()">
+  Add Reference
+</button>
+      </div>
+
+      <!-- Form (medecin only) -->
+      <div *ngIf="showRefForm && auth.isMedecin()" class="rmed-med-card" style="padding:20px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">{{ editRefMode ? 'Edit Reference Values' : 'New Reference Values' }}</h3>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Patient <span style="color:#ef4444;">*</span>
+            </label>
+            <select [(ngModel)]="newRef.patientId" class="input"
+                    (blur)="touchRef('patientId')" (ngModelChange)="touchRef('patientId')"
+                    [style.borderColor]="refTouched['patientId'] && refPatientError ? '#ef4444' : ''"
+                    [disabled]="auth.isPatient()">
+              <option value="" disabled>Select a patient</option>
+              <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+            </select>
+            <p *ngIf="refTouched['patientId'] && refPatientError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refPatientError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Established Date <span style="color:#ef4444;">*</span>
+            </label>
+            <input type="date" [(ngModel)]="newRef.establishedDate" class="input" [max]="todayIso"
+                   (blur)="touchRef('establishedDate')" (ngModelChange)="touchRef('establishedDate')"/>
+            <p *ngIf="refTouched['establishedDate'] && refDateError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refDateError }}
+            </p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Baseline Creatinine (mg/dL)
+            </label>
+            <input type="number" step="0.01" min="0.1" max="20"
+                   [(ngModel)]="newRef.baselineCreatinine" class="input" placeholder="e.g. 1.1"
+                   [style.borderColor]="refTouched['baselineCreatinine'] && refBaselineCreatinineError ? '#ef4444' : ''"
+                   (blur)="touchRef('baselineCreatinine')" (ngModelChange)="touchRef('baselineCreatinine')"/>
+            <p *ngIf="refTouched['baselineCreatinine'] && refBaselineCreatinineError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refBaselineCreatinineError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Baseline eGFR (mL/min)
+            </label>
+            <input type="number" step="0.1" min="0" max="2000"
+                   [(ngModel)]="newRef.baselineEGFR" class="input" placeholder="e.g. 60"
+                   [style.borderColor]="refTouched['baselineEGFR'] && refBaselineEGFRError ? '#ef4444' : ''"
+                   (blur)="touchRef('baselineEGFR')" (ngModelChange)="touchRef('baselineEGFR')"/>
+            <p *ngIf="refTouched['baselineEGFR'] && refBaselineEGFRError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refBaselineEGFRError }}
+            </p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Tacrolimus Target Min (ng/mL)
+            </label>
+            <input type="number" step="0.1" min="0" max="50"
+                   [(ngModel)]="newRef.targetTacrolimusMin" class="input" placeholder="e.g. 5"
+                   [style.borderColor]="refTouched['targetTacrolimusMin'] && refTacMinError ? '#ef4444' : ''"
+                   (blur)="touchRef('targetTacrolimusMin')" (ngModelChange)="touchRef('targetTacrolimusMin')"/>
+            <p *ngIf="refTouched['targetTacrolimusMin'] && refTacMinError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refTacMinError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Tacrolimus Target Max (ng/mL)
+            </label>
+            <input type="number" step="0.1" min="0" max="50"
+                   [(ngModel)]="newRef.targetTacrolimusMax" class="input" placeholder="e.g. 12"
+                   [style.borderColor]="refTouched['targetTacrolimusMax'] && refTacMaxError ? '#ef4444' : ''"
+                   (blur)="touchRef('targetTacrolimusMax')" (ngModelChange)="touchRef('targetTacrolimusMax')"/>
+            <p *ngIf="refTouched['targetTacrolimusMax'] && refTacMaxError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refTacMaxError }}
+            </p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Target Systolic BP
+            </label>
+            <input type="number" min="60" max="260" step="1"
+                   [(ngModel)]="newRef.targetSystolicBP" class="input" placeholder="e.g. 130"
+                   [style.borderColor]="refTouched['targetSystolicBP'] && refTargetSysBPError ? '#ef4444' : ''"
+                   (blur)="touchRef('targetSystolicBP')" (ngModelChange)="touchRef('targetSystolicBP')"/>
+            <p *ngIf="refTouched['targetSystolicBP'] && refTargetSysBPError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refTargetSysBPError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Target Diastolic BP
+            </label>
+            <input type="number" min="30" max="170" step="1"
+                   [(ngModel)]="newRef.targetDiastolicBP" class="input" placeholder="e.g. 80"
+                   [style.borderColor]="refTouched['targetDiastolicBP'] && refTargetDiaBPError ? '#ef4444' : ''"
+                   (blur)="touchRef('targetDiastolicBP')" (ngModelChange)="touchRef('targetDiastolicBP')"/>
+            <p *ngIf="refTouched['targetDiastolicBP'] && refTargetDiaBPError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ refTargetDiaBPError }}
+            </p>
+          </div>
+        </div>
+
+        <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px; margin-top:4px;">Notes</label>
+        <textarea [(ngModel)]="newRef.notes" class="input" rows="2" placeholder="Clinical notes..."></textarea>
+
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="rmed-btn-all" (click)="saveRef()" [style.opacity]="refFormValid ? '1' : '0.5'">
+            {{ editRefMode ? 'Update' : 'Save Reference' }}
+          </button>
+          <button class="rmed-btn-reset" (click)="closeRefForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Filter (medecin only) -->
+      <div *ngIf="auth.isMedecin()" style="display:flex; gap:10px; margin-bottom:16px; align-items:center;">
+        <select [(ngModel)]="refPatientFilter" class="input" style="margin:0; width:180px;">
+          <option value="">All Patients</option>
+          <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+        </select>
+      </div>
+
+      <!-- Cards -->
+      <div class="rmed-grid">
+        <div *ngFor="let r of filteredRefs" class="rmed-med-card">
+          <div class="rmed-card-header">
+            <div class="rmed-card-title-block">
+              <h3 class="rmed-med-name">{{ r.patientId }}</h3>
+              <span class="rmed-cat-tag" style="background:#e8f4fd; color:#1565a8;">Baseline</span>
+            </div>
+          </div>
+          <div class="rmed-dosage-row">
+            <span class="rmed-dosage-pill">Established {{ fmtDate(r.establishedDate) }}</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Creatinine</span>
+            <span class="rmed-ing-val">{{ r.baselineCreatinine !== null ? r.baselineCreatinine + ' mg/dL' : '—' }}</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">eGFR</span>
+            <span class="rmed-ing-val">{{ r.baselineEGFR !== null ? r.baselineEGFR + ' mL/min' : '—' }}</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Tacrolimus</span>
+            <span class="rmed-ing-val">{{ r.targetTacrolimusMin }} – {{ r.targetTacrolimusMax }} ng/mL</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">BP Target</span>
+            <span class="rmed-ing-val">{{ r.targetSystolicBP ?? '—' }} / {{ r.targetDiastolicBP ?? '—' }} mmHg</span>
+          </div>
+          <div *ngIf="auth.isMedecin()" class="rmed-card-footer" style="display:flex; gap:8px;">
+            <button class="rmed-btn-reset" (click)="editRef(r)">Edit</button>
+            <button class="rmed-btn-reset" style="color:#ef4444; border-color:#fca5a5;"
+                    (click)="askDelete('ref', r.id, r.patientId + ' baseline')">Delete</button>
+          </div>
+        </div>
+        <p *ngIf="filteredRefs.length === 0" style="color:#888;">No reference values recorded.</p>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB: ALERT THRESHOLDS                                                 -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'thresholds'">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;
+                  flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0; font-size:18px; color:#1e293b;">Nephrologist Alert Thresholds</h3>
+        <button *ngIf="auth.isMedecin()" class="rmed-btn-all" (click)="openAddThreshold()">Add Threshold</button>
+      </div>
+
+      <!-- Form (medecin only) -->
+      <div *ngIf="showThrForm && auth.isMedecin()" class="rmed-med-card" style="padding:20px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">{{ editThrMode ? 'Edit Threshold' : 'New Alert Threshold' }}</h3>
+
+        <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+          Patient <span style="color:#ef4444;">*</span>
+        </label>
+        <select [(ngModel)]="newThreshold.patientId" class="input"
+                (blur)="touchThr('patientId')" (ngModelChange)="touchThr('patientId')"
+                [style.borderColor]="thrTouched['patientId'] && thrPatientError ? '#ef4444' : ''"
+                [disabled]="auth.isPatient()">
+          <option value="" disabled>Select a patient</option>
+          <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+        </select>
+        <p *ngIf="thrTouched['patientId'] && thrPatientError"
+           style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+          {{ thrPatientError }}
+        </p>
+
+        <div style="background:#f0f8ff; border:1px solid #b3d9f5; border-radius:10px;
+                    padding:10px 14px; margin-bottom:12px; font-size:12px; color:#1565a8;">
+          These thresholds define when an alert is fired based on deviation from this patient's baseline reference values.
+        </div>
+
+        <div *ngIf="newThreshold.patientId" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; margin-bottom:12px;">
+          <div style="font-size:12px; font-weight:900; color:#0f172a; margin-bottom:4px;">Suggested from recent data</div>
+          <div style="font-size:12px; color:#475569; font-weight:700; margin-bottom:8px;">
+            Creatinine rise: {{ thresholdSuggestions.creatinineRisePercent ?? '—' }}% · eGFR drop: {{ thresholdSuggestions.eGFRDropPercent ?? '—' }}%
+          </div>
+          <button class="rmed-btn-reset" type="button" (click)="applyThresholdSuggestions()"
+                  style="padding:8px 12px; font-size:13px; border-radius:10px; border:1px solid #cbd5e1; background:#f8fafc; color:#334155;">
+            Use suggestions
+          </button>
+          <div style="margin-top:8px; font-size:12px; color:#64748b; font-weight:600; line-height:1.4;">
+            {{ thresholdSuggestions.reason }}
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Creatinine Rise Alert (%)
+            </label>
+            <input type="number" min="0" max="200" step="1"
+                   [(ngModel)]="newThreshold.creatinineRisePercent" class="input" placeholder="e.g. 25"
+                   [style.borderColor]="thrTouched['creatinineRisePercent'] && thrCreatinineRisePercentError ? '#ef4444' : ''"
+                   (blur)="touchThr('creatinineRisePercent')" (ngModelChange)="touchThr('creatinineRisePercent')"/>
+            <p *ngIf="thrTouched['creatinineRisePercent'] && thrCreatinineRisePercentError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ thrCreatinineRisePercentError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              eGFR Drop Alert (%)
+            </label>
+            <input type="number" min="0" max="200" step="1"
+                   [(ngModel)]="newThreshold.eGFRDropPercent" class="input" placeholder="e.g. 20"
+                   [style.borderColor]="thrTouched['eGFRDropPercent'] && thrEGFRDropPercentError ? '#ef4444' : ''"
+                   (blur)="touchThr('eGFRDropPercent')" (ngModelChange)="touchThr('eGFRDropPercent')"/>
+            <p *ngIf="thrTouched['eGFRDropPercent'] && thrEGFRDropPercentError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ thrEGFRDropPercentError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Creatinine Absolute Max (mg/dL)
+            </label>
+            <input type="number" step="0.1" min="0.1" max="20"
+                   [(ngModel)]="newThreshold.creatinineAbsoluteMax" class="input" placeholder="e.g. 3.0"
+                   [style.borderColor]="thrTouched['creatinineAbsoluteMax'] && thrCreatinineAbsoluteMaxError ? '#ef4444' : ''"
+                   (blur)="touchThr('creatinineAbsoluteMax')" (ngModelChange)="touchThr('creatinineAbsoluteMax')"/>
+            <p *ngIf="thrTouched['creatinineAbsoluteMax'] && thrCreatinineAbsoluteMaxError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ thrCreatinineAbsoluteMaxError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              eGFR Critical Min (mL/min)
+            </label>
+            <input type="number" min="0" max="2000" step="1"
+                   [(ngModel)]="newThreshold.eGFRCriticalMin" class="input" placeholder="e.g. 20"
+                   [style.borderColor]="thrTouched['eGFRCriticalMin'] && thrEGFRCriticalMinError ? '#ef4444' : ''"
+                   (blur)="touchThr('eGFRCriticalMin')" (ngModelChange)="touchThr('eGFRCriticalMin')"/>
+            <p *ngIf="thrTouched['eGFRCriticalMin'] && thrEGFRCriticalMinError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ thrEGFRCriticalMinError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Tacrolimus Min (ng/mL)
+            </label>
+            <input type="number" step="0.1" min="0" max="50"
+                   [(ngModel)]="newThreshold.tacrolimusMin" class="input" placeholder="e.g. 5"
+                   [style.borderColor]="thrTouched['tacrolimusMin'] && thrTacMinError ? '#ef4444' : ''"
+                   (blur)="touchThr('tacrolimusMin')" (ngModelChange)="touchThr('tacrolimusMin')"/>
+            <p *ngIf="thrTouched['tacrolimusMin'] && thrTacMinError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ thrTacMinError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Tacrolimus Max (ng/mL)
+            </label>
+            <input type="number" step="0.1" min="0" max="50"
+                   [(ngModel)]="newThreshold.tacrolimusMax" class="input" placeholder="e.g. 15"
+                   [style.borderColor]="thrTouched['tacrolimusMax'] && thrTacMaxError ? '#ef4444' : ''"
+                   (blur)="touchThr('tacrolimusMax')" (ngModelChange)="touchThr('tacrolimusMax')"/>
+            <p *ngIf="thrTouched['tacrolimusMax'] && thrTacMaxError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ thrTacMaxError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Acute Decline Alert Level
+            </label>
+            <select [(ngModel)]="newThreshold.acuteDeclineLevel" class="input">
+              <option *ngFor="let l of alertLevels" [value]="l">{{ l }}</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Chronic Decline Alert Level
+            </label>
+            <select [(ngModel)]="newThreshold.chronicDeclineLevel" class="input">
+              <option *ngFor="let l of alertLevels" [value]="l">{{ l }}</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px; margin-top:4px;">
+          Configured By
+        </label>
+        <input [(ngModel)]="newThreshold.configuredBy" class="input" placeholder="Configured by"
+               [disabled]="true"
+               [style.borderColor]="thrTouched['configuredBy'] && thrConfiguredByError ? '#ef4444' : ''"/>
+        <p *ngIf="thrTouched['configuredBy'] && thrConfiguredByError"
+           style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+          {{ thrConfiguredByError }}
+        </p>
+
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="rmed-btn-all" (click)="saveThreshold()" [style.opacity]="thrFormValid ? '1' : '0.5'">
+            {{ editThrMode ? 'Update' : 'Save Threshold' }}
+          </button>
+          <button class="rmed-btn-reset" (click)="closeThrForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Filter (medecin only) -->
+      <div *ngIf="auth.isMedecin()" style="display:flex; gap:10px; margin-bottom:16px; align-items:center;">
+        <select [(ngModel)]="thrPatientFilter" class="input" style="margin:0; width:180px;">
+          <option value="">All Patients</option>
+          <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+        </select>
+      </div>
+
+      <!-- Cards -->
+      <div class="rmed-grid">
+        <div *ngFor="let t of filteredThresholds" class="rmed-med-card">
+          <div class="rmed-card-header">
+            <div class="rmed-card-title-block">
+              <h3 class="rmed-med-name">{{ t.patientId }}</h3>
+              <span class="rmed-cat-tag"
+                    [style.background]="alertBg(t.acuteDeclineLevel)"
+                    [style.color]="alertColor(t.acuteDeclineLevel)">
+                Acute: {{ t.acuteDeclineLevel }}
+              </span>
+            </div>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Creatinine rise</span>
+            <span class="rmed-ing-val">+{{ t.creatinineRisePercent ?? '—' }}% triggers alert</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">eGFR drop</span>
+            <span class="rmed-ing-val">-{{ t.eGFRDropPercent ?? '—' }}% triggers alert</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Creat. max</span>
+            <span class="rmed-ing-val">{{ t.creatinineAbsoluteMax ?? '—' }} mg/dL</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">eGFR min</span>
+            <span class="rmed-ing-val">{{ t.eGFRCriticalMin ?? '—' }} mL/min</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Tacrolimus</span>
+            <span class="rmed-ing-val">{{ t.tacrolimusMin }} – {{ t.tacrolimusMax }} ng/mL</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Chronic level</span>
+            <span class="rmed-ing-val">{{ t.chronicDeclineLevel }}</span>
+          </div>
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">By</span>
+            <span class="rmed-ing-val">{{ t.configuredBy || '—' }}</span>
+          </div>
+          <div *ngIf="auth.isMedecin()" class="rmed-card-footer" style="display:flex; gap:8px;">
+            <button class="rmed-btn-reset" (click)="editThreshold(t)">Edit</button>
+            <button class="rmed-btn-reset" style="color:#ef4444; border-color:#fca5a5;"
+                    (click)="askDelete('threshold', t.id, t.patientId + ' threshold')">Delete</button>
+          </div>
+        </div>
+        <p *ngIf="filteredThresholds.length === 0" style="color:#888;">No thresholds configured.</p>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB: GRAFT SURVIVAL SCORES                                            -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'scores'">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;
+                  flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0; font-size:18px; color:#1e293b;">Graft Survival Scores</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+
+          <!-- ── AUTO-GENERATE BUTTON ── -->
+        <button *ngIf="auth.isMedecin()" class="rmed-btn-all" (click)="openAutoScoreModal()"
+        style="background:linear-gradient(135deg,#0d3b6e,#1f8dd6);
+               display:flex; align-items:center; gap:8px;">
+   Auto-Generate Score
+</button>
+
+<button *ngIf="auth.isMedecin()" class="rmed-btn-all" (click)="openCompareModal()"
+      style="background:linear-gradient(135deg,#0d6e4e,#10b981);
+             display:flex; align-items:center; gap:8px;">
+ Compare Similar Patients
+</button>
+        </div>
+      </div>
+
+      <!-- Form (medecin only) -->
+      <div *ngIf="showScoreForm && auth.isMedecin()" class="rmed-med-card" style="padding:20px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">{{ editScoreMode ? 'Edit Score' : 'New Survival Score' }}</h3>
+
+        <!-- Auto-computed notice -->
+        <div *ngIf="newScore.calculationModel === 'AUTO_EGFR_SLOPE'"
+             style="margin-bottom:16px; padding:10px 14px; background:#f0fdf4;
+                    border:1px solid #86efac; border-left:4px solid #22c55e;
+                    border-radius:10px; font-size:13px; color:#166534; font-weight:600;">
+          ✅ Pre-filled by auto-computation. Review values and click <strong>Save Score</strong> to confirm.
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Patient <span style="color:#ef4444;">*</span>
+            </label>
+            <select [(ngModel)]="newScore.patientId" class="input"
+                    (blur)="touchScore('patientId')" (ngModelChange)="touchScore('patientId')"
+                    [style.borderColor]="scoreTouched['patientId'] && scorePatientError ? '#ef4444' : ''"
+                    [disabled]="auth.isPatient()">
+              <option value="" disabled>Select a patient</option>
+              <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+            </select>
+            <p *ngIf="scoreTouched['patientId'] && scorePatientError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scorePatientError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Risk Level
+            </label>
+            <select [(ngModel)]="newScore.riskLevel" class="input">
+              <option *ngFor="let r of riskLevels" [value]="r">{{ r }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              1-Year Survival (0–1)
+            </label>
+            <input type="number" step="0.01" min="0" max="1"
+                   [(ngModel)]="newScore.survivalProbability1Year" class="input" placeholder="e.g. 0.92"
+                   [style.borderColor]="scoreTouched['survivalProbability1Year'] && scoreP1Error ? '#ef4444' : ''"
+                   (blur)="touchScore('survivalProbability1Year')" (ngModelChange)="touchScore('survivalProbability1Year')"/>
+            <p *ngIf="scoreTouched['survivalProbability1Year'] && scoreP1Error"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scoreP1Error }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              3-Year Survival (0–1)
+            </label>
+            <input type="number" step="0.01" min="0" max="1"
+                   [(ngModel)]="newScore.survivalProbability3Year" class="input" placeholder="e.g. 0.78"
+                   [style.borderColor]="scoreTouched['survivalProbability3Year'] && scoreP3Error ? '#ef4444' : ''"
+                   (blur)="touchScore('survivalProbability3Year')" (ngModelChange)="touchScore('survivalProbability3Year')"/>
+            <p *ngIf="scoreTouched['survivalProbability3Year'] && scoreP3Error"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scoreP3Error }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              5-Year Survival (0–1)
+            </label>
+            <input type="number" step="0.01" min="0" max="1"
+                   [(ngModel)]="newScore.survivalProbability5Year" class="input" placeholder="e.g. 0.65"
+                   [style.borderColor]="scoreTouched['survivalProbability5Year'] && scoreP5Error ? '#ef4444' : ''"
+                   (blur)="touchScore('survivalProbability5Year')" (ngModelChange)="touchScore('survivalProbability5Year')"/>
+            <p *ngIf="scoreTouched['survivalProbability5Year'] && scoreP5Error"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scoreP5Error }}
+            </p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:4px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              eGFR Slope (mL/min/month)
+            </label>
+            <input type="number" step="0.01" min="-50" max="50"
+                   [(ngModel)]="newScore.eGFRSlope" class="input" placeholder="e.g. -0.5"
+                   [style.borderColor]="scoreTouched['eGFRSlope'] && scoreEGFROrror ? '#ef4444' : ''"
+                   (blur)="touchScore('eGFRSlope')" (ngModelChange)="touchScore('eGFRSlope')"/>
+            <p *ngIf="scoreTouched['eGFRSlope'] && scoreEGFROrror"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scoreEGFROrror }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Creatinine Slope
+            </label>
+            <input type="number" step="0.01" min="-50" max="50"
+                   [(ngModel)]="newScore.creatinineSlope" class="input" placeholder="e.g. 0.02"
+                   [style.borderColor]="scoreTouched['creatinineSlope'] && scoreCreatinineSlopeError ? '#ef4444' : ''"
+                   (blur)="touchScore('creatinineSlope')" (ngModelChange)="touchScore('creatinineSlope')"/>
+            <p *ngIf="scoreTouched['creatinineSlope'] && scoreCreatinineSlopeError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scoreCreatinineSlopeError }}
+            </p>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Rejection Episodes
+            </label>
+            <input type="number" min="0" step="1"
+                   [(ngModel)]="newScore.rejectionEpisodeCount" class="input" placeholder="0"
+                   [style.borderColor]="scoreTouched['rejectionEpisodeCount'] && scoreRejectionEpisodesError ? '#ef4444' : ''"
+                   (blur)="touchScore('rejectionEpisodeCount')" (ngModelChange)="touchScore('rejectionEpisodeCount')"/>
+            <p *ngIf="scoreTouched['rejectionEpisodeCount'] && scoreRejectionEpisodesError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scoreRejectionEpisodesError }}
+            </p>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:20px; margin:12px 0;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#374151; cursor:pointer;">
+            <input type="checkbox" [(ngModel)]="newScore.hasAcuteDecline"/>
+            Acute Decline Detected
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#374151; cursor:pointer;">
+            <input type="checkbox" [(ngModel)]="newScore.hasChronicDecline"/>
+            Chronic Decline Detected
+          </label>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Calculation Model
+            </label>
+            <input [(ngModel)]="newScore.calculationModel" class="input" placeholder="e.g. MANUAL"/>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px;">
+              Tacrolimus Variability (CV)
+            </label>
+            <input type="number" step="0.01" min="0" max="100"
+                   [(ngModel)]="newScore.tacrolimusVariability" class="input" placeholder="e.g. 0.32"
+                   [style.borderColor]="scoreTouched['tacrolimusVariability'] && scoreTacrolimusVariabilityError ? '#ef4444' : ''"
+                   (blur)="touchScore('tacrolimusVariability')" (ngModelChange)="touchScore('tacrolimusVariability')"/>
+            <p *ngIf="scoreTouched['tacrolimusVariability'] && scoreTacrolimusVariabilityError"
+               style="color:#ef4444; font-size:12px; margin:-6px 0 8px; font-weight:600;">
+              {{ scoreTacrolimusVariabilityError }}
+            </p>
+          </div>
+        </div>
+
+        <label style="font-size:13px; color:#6b7280; font-weight:700; display:block; margin-bottom:4px; margin-top:4px;">Notes</label>
+        <textarea [(ngModel)]="newScore.notes" class="input" rows="2" placeholder="Clinical context..."></textarea>
+
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="rmed-btn-all" (click)="saveScore()" [style.opacity]="scoreFormValid ? '1' : '0.5'">
+            {{ editScoreMode ? 'Update Score' : 'Save Score' }}
+          </button>
+          <button class="rmed-btn-reset" (click)="closeScoreForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div style="display:flex; gap:10px; margin-bottom:16px; align-items:center; flex-wrap:wrap;">
+
+  <select *ngIf="auth.isMedecin()" [(ngModel)]="scorePatientFilter" class="input" style="margin:0; width:180px;">
+    <option value="">All Patients</option>
+    <option *ngFor="let p of patients" [value]="p.username">{{ p.displayName }}</option>
+  </select>
+
+  <select [(ngModel)]="scoreRiskFilter" class="input" style="margin:0; width:160px;">
+    <option value="">All Risk Levels</option>
+    <option *ngFor="let r of riskLevels" [value]="r">{{ r }}</option>
+  </select>
+
+  <!-- 🔥 NEW: right-aligned vaccination button -->
+  <div *ngIf="auth.isPatient()" style="margin-left:auto;">
+    <button (click)="toggleVacImpact()"
+            style="padding:11px 22px; border-radius:12px; border:none; cursor:pointer; font-size:14px;
+                   font-weight:800; display:flex; align-items:center; gap:10px;
+                   background:linear-gradient(135deg,#7c3aed,#a855f7); color:white;
+                   box-shadow:0 4px 14px rgba(124,58,237,0.3); white-space:nowrap;">
+      {{ showVacImpact ? 'Hide' : 'Show' }} My Vaccination Impact
+    </button>
+  </div>
+
+</div>
+
+      <!-- Cards -->
+      <div class="rmed-grid">
+        <div *ngFor="let s of filteredScores" class="rmed-med-card"
+             [style.borderColor]="getRiskColour(s.riskLevel).border"
+             [style.background]="getRiskColour(s.riskLevel).bg">
+
+          <div style="padding:8px 14px 0; display:flex; gap:6px; flex-wrap:wrap;">
+            <span [style.background]="getRiskColour(s.riskLevel).color"
+                  style="color:white; font-size:11px; font-weight:800; padding:3px 12px; border-radius:99px;">
+              {{ s.riskLevel }} RISK
+            </span>
+            <span *ngIf="s.hasAcuteDecline"
+                  style="background:#fef2f2; color:#991b1b; font-size:10px; font-weight:800;
+                         padding:3px 10px; border-radius:99px; border:1px solid #fca5a5;">
+              ACUTE
+            </span>
+            <span *ngIf="s.hasChronicDecline"
+                  style="background:#fff7ed; color:#9a3412; font-size:10px; font-weight:800;
+                         padding:3px 10px; border-radius:99px; border:1px solid #fed7aa;">
+              CHRONIC
+            </span>
+            <span *ngIf="s.calculationModel === 'AUTO_EGFR_SLOPE'"
+                  style="background:#ede9fe; color:#5b21b6; font-size:10px; font-weight:800;
+                         padding:3px 10px; border-radius:99px; border:1px solid #c4b5fd;">
+              AUTO
+            </span>
+          </div>
+
+          <div class="rmed-card-header">
+            <div class="rmed-card-title-block">
+              <h3 class="rmed-med-name">{{ s.patientId }}</h3>
+              <span class="rmed-cat-tag" style="background:#ede9fe; color:#5b21b6;">
+                {{ s.calculationModel }}
+              </span>
+            </div>
+          </div>
+
+          <div class="rmed-dosage-row">
+            <span class="rmed-dosage-pill">{{ fmtDate(s.calculatedAt) }}</span>
+          </div>
+
+          <!-- Survival probability bars -->
+          <div style="padding:8px 16px 4px;">
+            <div style="font-size:11px; font-weight:800; text-transform:uppercase;
+                        letter-spacing:0.06em; color:#64748b; margin-bottom:10px;">
+              Graft Survival Probability
+            </div>
+
+            <div style="margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                <span style="font-size:12px; font-weight:700; color:#6b7280;">1 Year</span>
+                <span style="font-size:13px; font-weight:900;"
+                      [style.color]="getProbabilityColor(s.survivalProbability1Year)">
+                  {{ getProbabilityBar(s.survivalProbability1Year) }}%
+                </span>
+              </div>
+              <div style="background:#e2e8f0; border-radius:99px; height:8px; overflow:hidden;">
+                <div [style.width]="getProbabilityBar(s.survivalProbability1Year) + '%'"
+                     [style.background]="getProbabilityColor(s.survivalProbability1Year)"
+                     style="height:100%; border-radius:99px; transition:width 0.7s ease;"></div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                <span style="font-size:12px; font-weight:700; color:#6b7280;">3 Years</span>
+                <span style="font-size:13px; font-weight:900;"
+                      [style.color]="getProbabilityColor(s.survivalProbability3Year)">
+                  {{ getProbabilityBar(s.survivalProbability3Year) }}%
+                </span>
+              </div>
+              <div style="background:#e2e8f0; border-radius:99px; height:8px; overflow:hidden;">
+                <div [style.width]="getProbabilityBar(s.survivalProbability3Year) + '%'"
+                     [style.background]="getProbabilityColor(s.survivalProbability3Year)"
+                     style="height:100%; border-radius:99px; transition:width 0.7s ease;"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                <span style="font-size:12px; font-weight:700; color:#6b7280;">5 Years</span>
+                <span style="font-size:13px; font-weight:900;"
+                      [style.color]="getProbabilityColor(s.survivalProbability5Year)">
+                  {{ getProbabilityBar(s.survivalProbability5Year) }}%
+                </span>
+              </div>
+              <div style="background:#e2e8f0; border-radius:99px; height:8px; overflow:hidden;">
+                <div [style.width]="getProbabilityBar(s.survivalProbability5Year) + '%'"
+                     [style.background]="getProbabilityColor(s.survivalProbability5Year)"
+                     style="height:100%; border-radius:99px; transition:width 0.7s ease;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">eGFR slope</span>
+            <span class="rmed-ing-val"
+                  [style.color]="s.eGFRSlope !== null && s.eGFRSlope < 0 ? '#ef4444' : '#10b981'">
+              {{ s.eGFRSlope !== null ? (s.eGFRSlope > 0 ? '+' : '') + s.eGFRSlope + ' mL/min' : '—' }}
+            </span>
+          </div>
+
+          <div class="rmed-ingredient">
+            <span class="rmed-ing-lbl">Rejections</span>
+            <span class="rmed-ing-val">{{ s.rejectionEpisodeCount ?? 0 }} episode(s)</span>
+          </div>
+
+          <div *ngIf="s.notes" class="rmed-ingredient" style="flex-direction:column; align-items:flex-start; gap:2px;">
+            <span class="rmed-ing-lbl">Notes</span>
+            <span style="font-size:12px; color:#475569; font-weight:600; line-height:1.5;">{{ s.notes }}</span>
+          </div>
+
+          <div *ngIf="auth.isMedecin()" class="rmed-card-footer" style="display:flex; gap:8px;">
+            <button class="rmed-btn-reset" (click)="editScore(s)">Edit</button>
+            <button class="rmed-btn-reset" style="color:#ef4444; border-color:#fca5a5;"
+                    (click)="askDelete('score', s.id, s.patientId + ' score')">Delete</button>
+          </div>
+        </div>
+
+
+<!-- ── VACCINATION IMPACT PANEL ── -->
+<div *ngIf="auth.isPatient() && showVacImpact"
+     style="margin-bottom:28px; background:white; border:1.5px solid #c4b5fd;
+            border-radius:16px; padding:24px; box-shadow:0 4px 20px rgba(124,58,237,0.1);">
+
+  <!-- Loading -->
+  <div *ngIf="vacImpactLoading" style="text-align:center; padding:20px; color:#7c3aed; font-weight:700;">
+    ⏳ Loading your vaccination data...
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="!vacImpactLoading && vacImpactError"
+       style="padding:12px 16px; background:#fef2f2; border:1px solid #fca5a5;
+              border-radius:10px; color:#991b1b; font-size:13px; font-weight:600;">
+    ⚠ {{ vacImpactError }}
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="!vacImpactLoading && !vacImpactError">
+
+    <!-- Header -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      
+      <div>
+        <div style="font-size:16px; font-weight:900; color:#4c1d95;">
+          Vaccination Impact on Graft Survival
+        </div>
+        <div style="font-size:12px; font-weight:600; color:#7c3aed;">
+          Based on {{ patientVaccinations.length }} vaccination(s) linked to your profile
+        </div>
+      </div>
+    </div>
+
+    <!-- No vaccinations found -->
+    <div *ngIf="patientVaccinations.length === 0"
+         style="padding:14px 16px; background:#faf5ff; border:1px solid #e9d5ff;
+                border-radius:10px; font-size:13px; color:#7c3aed; font-weight:600; text-align:center;">
+      No vaccinations found for your account. Your survival score is unaffected by vaccination records.
+    </div>
+
+    <!-- Vaccination list -->
+    <div *ngIf="patientVaccinations.length > 0">
+      <div style="font-size:11px; font-weight:800; text-transform:uppercase;
+                  letter-spacing:0.07em; color:#64748b; margin-bottom:10px;">
+        Your Vaccinations
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+        <div *ngFor="let v of patientVaccinations"
+             style="display:flex; align-items:center; justify-content:space-between;
+                    padding:10px 14px; border-radius:10px; font-size:13px;"
+             [style.background]="v.taken ? '#f0fdf4' : '#fef2f2'"
+             [style.border]="'1px solid ' + (v.taken ? '#86efac' : '#fca5a5')">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:18px;">{{ v.taken ? '✅' : '❌' }}</span>
+            <div>
+              <div style="font-weight:800;" [style.color]="v.taken ? '#166534' : '#991b1b'">{{ v.name }}</div>
+              <div style="font-size:11px; font-weight:600; color:#64748b;">
+                Scheduled: {{ v.vaccination_date | date:'dd MMM yyyy' }}
+                <span *ngIf="v.booster_date"> · Booster: {{ v.booster_date | date:'dd MMM yyyy' }}</span>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <span style="font-size:11px; font-weight:800; padding:3px 10px; border-radius:99px;"
+                  [style.background]="v.taken ? '#dcfce7' : '#fee2e2'"
+                  [style.color]="v.taken ? '#166534' : '#991b1b'">
+              {{ v.taken ? 'TAKEN' : 'NOT TAKEN' }}
+            </span>
+            <div *ngIf="v.booster_date" style="margin-top:4px;">
+              <span style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px;"
+                    [style.background]="v.booster_taken ? '#dcfce7' : '#fef9c3'"
+                    [style.color]="v.booster_taken ? '#166534' : '#854d0e'">
+                Booster: {{ v.booster_taken ? 'DONE' : 'PENDING' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adjusted score panel -->
+      <div *ngIf="vacImpactScore"
+           style="background:linear-gradient(135deg,#faf5ff,#ede9fe);
+                  border:1.5px solid #c4b5fd; border-radius:14px; padding:18px 20px;">
+
+        <div style="font-size:13px; font-weight:900; color:#4c1d95; margin-bottom:16px;">
+          📊 Adjusted Survival Prediction (Vaccination-Corrected)
+        </div>
+
+        <!-- Survival bars -->
+        <div *ngFor="let row of [
+            { label:'1 Year',  val: vacImpactScore.adjusted1Year, delta: vacImpactScore.delta1Year },
+            { label:'3 Years', val: vacImpactScore.adjusted3Year, delta: vacImpactScore.delta3Year },
+            { label:'5 Years', val: vacImpactScore.adjusted5Year, delta: vacImpactScore.delta5Year }
+          ]" style="margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span style="font-size:12px; font-weight:700; color:#6b7280;">{{ row.label }}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <!-- Delta badge -->
+              <span style="font-size:11px; font-weight:800; padding:2px 8px; border-radius:99px;"
+                    [style.background]="row.delta >= 0 ? '#dcfce7' : '#fee2e2'"
+                    [style.color]="row.delta >= 0 ? '#166534' : '#991b1b'">
+                {{ row.delta >= 0 ? '▲' : '▼' }}{{ (Math.abs(row.delta) * 100).toFixed(1) }}%
+              </span>
+              <span style="font-size:14px; font-weight:900;"
+                    [style.color]="getProbabilityColor(row.val)">
+                {{ getProbabilityBar(row.val) }}%
+              </span>
+            </div>
+          </div>
+          <div style="background:#e2e8f0; border-radius:99px; height:10px; overflow:hidden;">
+            <div [style.width]="getProbabilityBar(row.val) + '%'"
+                 [style.background]="getProbabilityColor(row.val)"
+                 style="height:100%; border-radius:99px; transition:width 0.7s ease;"></div>
+          </div>
+        </div>
+
+        <!-- Reason breakdown -->
+        <div style="margin-top:16px; border-top:1px solid #ddd6fe; padding-top:14px;">
+          <div style="font-size:11px; font-weight:800; text-transform:uppercase;
+                      letter-spacing:0.07em; color:#7c3aed; margin-bottom:10px;">
+            Breakdown by Vaccine
+          </div>
+          <div *ngFor="let r of vacImpactScore.reasons"
+               style="display:flex; gap:10px; align-items:flex-start; margin-bottom:8px;
+                      padding:8px 12px; border-radius:8px;"
+               [style.background]="r.taken ? '#f0fdf4' : '#fef2f2'">
+            <span style="font-size:16px; flex-shrink:0;">{{ r.taken ? '✅' : '⚠️' }}</span>
+            <div>
+              <div style="font-size:12px; font-weight:800;"
+                   [style.color]="r.taken ? '#166534' : '#991b1b'">
+                {{ r.vaccine }}
+                <span style="font-size:11px; font-weight:700; margin-left:6px; padding:1px 7px;
+                             border-radius:99px;"
+                      [style.background]="r.impact >= 0 ? '#dcfce7' : '#fee2e2'"
+                      [style.color]="r.impact >= 0 ? '#166534' : '#991b1b'">
+                  {{ r.impact >= 0 ? '+' : '' }}{{ (r.impact * 100).toFixed(1) }}% (1yr)
+                </span>
+              </div>
+              <div style="font-size:11px; color:#64748b; font-weight:600; margin-top:2px; line-height:1.5;">
+                {{ r.reason }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; font-size:11px; color:#94a3b8; font-weight:600;
+                    border-top:1px solid #ddd6fe; padding-top:8px; line-height:1.5;">
+          ⚠ These adjustments are statistical estimates based on vaccination status.
+          They do not replace a clinical evaluation by your nephrologist.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        <p *ngIf="filteredScores.length === 0" style="color:#888;">No survival scores recorded.</p>
+      </div>
+    </div>
+
+  </div>
+</div>

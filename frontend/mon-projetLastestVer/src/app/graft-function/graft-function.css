@@ -1,0 +1,229 @@
+/* graft-function.css
+   Inherits all base styles from infection-vaccination.css.
+   Only additions / overrides are defined here. */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+
+:host {
+  font-family: 'Nunito', sans-serif;
+  display: block;
+  width: 100%;
+  background: #f8fafc;
+}
+
+* { box-sizing: border-box; }
+
+/* ── Tab buttons inherit rmed-btn-reset look — override here ── */
+button[style*="border-radius:10px"] {
+  font-family: 'Nunito', sans-serif;
+}
+
+/* ── Grid same as infection module ── */
+.rmed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+/* ── Card base ── */
+.rmed-med-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(26, 155, 230, 0.12);
+  transition: all 0.3s ease;
+  animation: cardPop 0.2s ease both;
+}
+.rmed-med-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(26, 155, 230, 0.18);
+}
+
+@keyframes cardPop {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Stagger */
+.rmed-grid > div:nth-child(1) { animation-delay: 0.02s; }
+.rmed-grid > div:nth-child(2) { animation-delay: 0.06s; }
+.rmed-grid > div:nth-child(3) { animation-delay: 0.10s; }
+.rmed-grid > div:nth-child(4) { animation-delay: 0.14s; }
+.rmed-grid > div:nth-child(5) { animation-delay: 0.18s; }
+.rmed-grid > div:nth-child(6) { animation-delay: 0.22s; }
+
+/* ── Card header ── */
+.rmed-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 18px 10px;
+}
+.rmed-card-title-block { flex: 1; min-width: 0; }
+.rmed-med-name {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #0d3b6e;
+  margin: 0 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rmed-cat-tag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+/* ── Row ingredient ── */
+.rmed-ingredient {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: #f0f8ff;
+  margin: 0 12px 6px;
+  border-radius: 10px;
+}
+.rmed-ing-lbl {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  white-space: nowrap;
+  min-width: 96px;
+}
+.rmed-ing-val {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #374151;
+  flex: 1;
+}
+
+/* ── Dosage pill row ── */
+.rmed-dosage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 10px;
+  flex-wrap: wrap;
+}
+.rmed-dosage-pill {
+  background: #e8f4fd;
+  color: #1565a8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid #b3d9f5;
+}
+
+/* ── Card footer ── */
+.rmed-card-footer {
+  padding: 12px 16px;
+  border-top: 1.5px solid #f1f5f9;
+  margin-top: 8px;
+}
+
+/* ── Buttons ── */
+.rmed-btn-reset {
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.rmed-btn-reset:hover { background: #f1f5f9; transform: translateY(-1px); }
+
+.rmed-btn-all {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #1f8dd6, #0ea5e9);
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s;
+  box-shadow: 0 4px 14px rgba(31, 141, 214, 0.35);
+}
+.rmed-btn-all:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(31, 141, 214, 0.45); }
+
+/* ── Input / Select ── */
+.input {
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1e293b;
+  background: white;
+}
+.input:focus {
+  outline: none;
+  border-color: #1a9be6;
+  box-shadow: 0 0 0 3px rgba(26, 155, 230, 0.2);
+}
+textarea.input { resize: vertical; }
+
+/* ── Fade-in animation for forms ── */
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rmed-med-card { animation: fadeSlideDown 0.25s ease both; }
+
+/* ── Probability bars ── */
+.prob-bar-track {
+  background: #e2e8f0;
+  border-radius: 99px;
+  height: 8px;
+  overflow: hidden;
+}
+.prob-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .rmed-grid { grid-template-columns: 1fr; }
+  .input      { font-size: 14px; }
+}
+
+@media (max-width: 480px) {
+  :host > div { padding: 16px; }
+}
+
+/* ── Entry pile (collapsed patient history preview) ─────────────────────── */
+.rmed-entry-pile {
+  position: relative;
+  height: 118px;
+  overflow: hidden;
+}
+
+.rmed-entry-peek-card {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 0;
+  background: white;
+  border-radius: 16px;
+  border: 1.5px solid rgba(26, 155, 230, 0.14);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+  padding: 10px 14px;
+  transform-origin: top center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}

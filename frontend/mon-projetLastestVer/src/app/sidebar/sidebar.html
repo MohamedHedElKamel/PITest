@@ -1,0 +1,29 @@
+
+<div class="sidebar">
+    <div class="sidebar-item" routerLink="/back" routerLinkActive="active">
+        <span>Dashboard</span>
+    </div>
+    
+    <div class="sidebar-item" routerLink="/users" routerLinkActive="active">
+        <span>Users</span>
+    </div>
+    
+    <div class="sidebar-item" routerLink="/history" routerLinkActive="active">
+        <span>Appointments</span>
+    </div>
+
+    <div class="sidebar-item" routerLink="/treatment" routerLinkActive="active">
+        <span>Treatment</span>
+    </div>
+    
+    <div class="sidebar-item" routerLink="/dossiers" routerLinkActive="active">
+        <span>Dossiers</span>
+    </div>
+        <div class="sidebar-item" routerLink="/infection-dashboard" routerLinkActive="active">
+        <span>Infaction Dashboard</span>
+    </div>
+    
+    <div class="sidebar-item" (click)="logout()" style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+        <span>Log Out</span>
+    </div>
+</div>

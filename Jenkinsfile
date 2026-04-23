@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         maven 'Maven3'
-        jdk 'temurin-17'
+        jdk '17'
         nodejs 'node20'
     }
 

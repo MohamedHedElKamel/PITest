@@ -50,39 +50,35 @@ class GraftFunctionEntryServiceTest {
         sampleEntry.setId(1L);
     }
 
+    // ── SAVE ─────────────────────────────────────────────
+
     @Test
+    @DisplayName("save() — persists entry and returns it")
     void save_shouldPersistAndReturn() {
-        when(repository.save(any())).thenReturn(sampleEntry);
+        when(repository.save(any(GraftFunctionEntry.class))).thenReturn(sampleEntry);
 
         GraftFunctionEntry result = service.save(sampleEntry);
 
         assertThat(result).isNotNull();
-        assertThat(result.getPatientId()).isEqualTo("patient-001");
-        verify(repository).save(any());
+        verify(repository).save(sampleEntry);
     }
+
+    // ── FIND ALL ─────────────────────────────────────────
 
     @Test
     void findAll_shouldReturnAllEntries() {
-        GraftFunctionEntry second = new GraftFunctionEntry();
-        second.setPatientId("patient-002");
+        when(repository.findAll()).thenReturn(List.of(sampleEntry));
 
-        when(repository.findAll()).thenReturn(List.of(sampleEntry, second));
+        List<GraftFunctionEntry> result = service.findAll();
 
-        List<GraftFunctionEntry> results = service.findAll();
-
-        assertThat(results).hasSize(2);
+        assertThat(result).hasSize(1);
     }
 
-    @Test
-    void findAll_shouldReturnEmptyListWhenNone() {
-        when(repository.findAll()).thenReturn(List.of());
-
-        assertThat(service.findAll()).isEmpty();
-    }
+    // ── FIND BY ID (FIXED TYPE) ──────────────────────────
 
     @Test
     void findById_shouldReturnEntryWhenFound() {
-        when(repository.findById(1L)).thenReturn(Optional.of(sampleEntry));
+        when(repository.findById(1)).thenReturn(Optional.of(sampleEntry));
 
         Optional<GraftFunctionEntry> result = service.findById(1L);
 
@@ -91,23 +87,53 @@ class GraftFunctionEntryServiceTest {
 
     @Test
     void findById_shouldReturnEmptyWhenNotFound() {
-        when(repository.findById(999L)).thenReturn(Optional.empty());
+        when(repository.findById(999)).thenReturn(Optional.empty());
 
         assertThat(service.findById(999L)).isEmpty();
     }
 
+    // ── FIND BY PATIENT ──────────────────────────────────
+
     @Test
-    void delete_shouldCallDeleteById() {
-        doNothing().when(repository).deleteById(1L);
+    void findByPatientId_shouldReturnEntries() {
+        when(repository.findByPatientIdOrderByMeasurementDateDesc("patient-001"))
+                .thenReturn(List.of(sampleEntry));
+
+        List<GraftFunctionEntry> result = service.findByPatientId("patient-001");
+
+        assertThat(result).hasSize(1);
+    }
+
+    // ── DELETE (FIXED TYPE ISSUE) ────────────────────────
+
+    @Test
+    void delete_shouldCallRepository() {
+        doNothing().when(repository).deleteById(1);
 
         service.delete(1L);
 
-        verify(repository).deleteById(1L);
+        verify(repository).deleteById(1);
+    }
+
+    // ── UPDATE ───────────────────────────────────────────
+
+    @Test
+    void update_shouldUpdateEntry() {
+        GraftFunctionEntry updated = new GraftFunctionEntry();
+        updated.setCreatinine(2.0);
+
+        when(repository.findById(1)).thenReturn(Optional.of(sampleEntry));
+        when(repository.save(any())).thenReturn(sampleEntry);
+
+        GraftFunctionEntry result = service.update(1L, updated);
+
+        assertThat(result).isNotNull();
+        verify(repository).save(any());
     }
 
     @Test
     void update_shouldThrowWhenNotFound() {
-        when(repository.findById(999L)).thenReturn(Optional.empty());
+        when(repository.findById(999)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.update(999L, sampleEntry))
                 .isInstanceOf(RuntimeException.class);

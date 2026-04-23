@@ -26,6 +26,7 @@ jobs:
         run: mvn clean verify
         working-directory: backend/FoncGreffon
 
+
   # ───────── FRONTEND ─────────
   frontend:
     name: Frontend Tests (Angular)
@@ -49,8 +50,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
 
+     
       - name: Run Angular Tests
-        run: npm run test -- --watch=false --browsers=ChromeHeadless
+        run: npm run test -- --watch=false
         working-directory: frontend/mon-projetLastestVer
 
       - name: Build Angular App
